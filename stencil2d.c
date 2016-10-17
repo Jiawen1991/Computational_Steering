@@ -5,8 +5,6 @@
 #include <sys/time.h>
 #include <sys/timeb.h>
 #include <string.h>
-//#include "homp.h"
-//#include "stencil2d.h"
 
 /* 2D/3D stencil computation, take a radius sized coefficient matrix, and apply stencil computation to a matrix
  * The stencil could be cross-based, which only uses neighbors from one dimension stride (A[i-1][j][k], or square-based
@@ -80,14 +78,20 @@ int main(int argc, char * argv[]) {
 	long m = DEFAULT_DIMSIZE;
 	int radius = 3;
 	int num_its = 1000;
-
+	int num_threads = 1;
     fprintf(stderr,"Usage: jacobi [<n> <m> <radius> <num_its>]\n");
     fprintf(stderr, "\tn - grid dimension in x direction, default: %d\n", n);
     fprintf(stderr, "\tm - grid dimension in y direction, default: n if provided or %d\n", m);
     fprintf(stderr, "\tradius - Filter radius, default: %d\n", radius);
     fprintf(stderr, "\tnum_its  - # iterations for iterative solver, default: %d\n", num_its);
 
-    if (argc == 2)      { sscanf(argv[1], "%d", &n); m = n; }
+    if (argc == 2)      //{ sscanf(argv[1], "%d", &n); m = n; }
+	{
+		num_threads = atoi(argv[1]);
+		omp_set_num_threads(num_threads);
+		printf("%d\n",num_threads);
+	
+	}
     else if (argc == 3) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); }
     else if (argc == 4) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); sscanf(argv[3], "%d", &radius); }
     else if (argc == 5) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); sscanf(argv[3], "%d", &radius); sscanf(argv[4], "%d", &num_its); }
@@ -111,22 +115,23 @@ int main(int argc, char * argv[]) {
 	init_array(u_volumn, u, 0.0, 1.0);
 	init_array(coeff_volumn, coeff, 0.0, 1.0);
 	memcpy(u_omp, u, sizeof(REAL)*u_volumn);
-
+#if 0
 	printf("serial execution\n");
 	REAL base_elapsed = omp_get_wtime();
         int i;
         int num_runs = 1;
 	for (i=0;i<num_runs;i++) stencil2d_seq(n, m, u, radius, coeff, num_its);
 	base_elapsed = ((omp_get_wtime() - base_elapsed))/num_runs*1000;
-
+#endif
 	printf("OMP execution\n");
 	REAL omp_elapsed = omp_get_wtime();
-	num_runs = 1;
+	int i;
+	int num_runs = 1;
 	for (i=0;i<num_runs;i++) stencil2d_omp(n, m, u_omp, radius, coeff, num_its);
 	omp_elapsed = (omp_get_wtime() - omp_elapsed)/num_runs*1000;
 
 	long flops = n*m*radius;
-#ifdef SQUARE_SETNCIL
+#ifdef SQUARE_STENCIL
 	flops *= 8;
 #else
 	flops *= 16;
@@ -137,7 +142,7 @@ int main(int argc, char * argv[]) {
 	printf("------------------------------------------------------------------------------------------------------\n");
 	printf("Performance:\t\tRuntime (ms)\t MFLOPS \t\tError (compared to base)\n");
 	printf("------------------------------------------------------------------------------------------------------\n");
-	printf("base:\t\t%4f\t%4f \t\t%g\n", base_elapsed, flops / (1.0e-3 * base_elapsed), 0.0); //check_accdiff(u, u, u_dimX, u_dimY, radius, 1.0e-7));
+	//printf("base:\t\t%4f\t%4f \t\t%g\n", base_elapsed, flops / (1.0e-3 * base_elapsed), 0.0); //check_accdiff(u, u, u_dimX, u_dimY, radius, 1.0e-7));
 	printf("omp: \t\t%4f\t%4f \t\t%g\n", omp_elapsed, flops / (1.0e-3 * omp_elapsed), check_accdiff(u, u_omp, n, m, radius, 0.00001f));
 
 	free(u);
@@ -158,7 +163,7 @@ void stencil2d_seq(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 	REAL * uold_save = uold;
 	REAL * u_save = u;
 	int count = 4*radius+1;
-#ifdef SQUARE_SETNCIL
+#ifdef SQUARE_STENCIL
 	count = coeff_dimX * coeff_dimX;
 #endif
 
@@ -177,11 +182,11 @@ void stencil2d_seq(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 					result += coeff[-ir]* temp_uold[-ir];                  // horizontal left
 					result += coeff[-ir*coeff_dimX] * temp_uold[-ir * u_dimY]; //vertical up
 					result += coeff[ir*coeff_dimX] * temp_uold[ir * u_dimY]; // vertical bottom
-#ifdef SQUARE_SETNCIL
-					result += coeff[-ir*coeff_dimX-ir] * temp_uold[-ir * u_dimY-ir] // left upper corner
-					result += coeff[-ir*coeff_dimX+ir] * temp_uold[-ir * u_dimY+ir] // right upper corner
-					result += coeff[ir*coeff_dimX-ir] * temp_uold[ir * u_dimY]-ir] // left bottom corner
-					result += coeff[ir*coeff_dimX+ir] * temp_uold[ir * u_dimY]+ir] // right bottom corner
+#ifdef SQUARE_STENCIL
+					result += coeff[-ir*coeff_dimX-ir] * temp_uold[-ir * u_dimY-ir]; // left upper corner
+					result += coeff[-ir*coeff_dimX+ir] * temp_uold[-ir * u_dimY+ir]; // right upper corner
+					result += coeff[ir*coeff_dimX-ir] * temp_uold[ir * u_dimY]-ir]; // left bottom corner
+					result += coeff[ir*coeff_dimX+ir] * temp_uold[ir * u_dimY]+ir]; // right bottom corner
 #endif
 				}
 				*temp_u = result/count;
@@ -205,7 +210,7 @@ void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 	memcpy(uold, u, sizeof(REAL)*u_dimX*u_dimY);
 	coeff = coeff + (2 * radius + 1) * radius + radius; /* let coeff point to the center element */
 	int count = 4*radius+1;
-#ifdef SQUARE_SETNCIL
+#ifdef SQUARE_STENCIL
 	count = coeff_dimX * coeff_dimX;
 #endif
 
@@ -227,7 +232,7 @@ void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 						result += coeff[-ir] * temp_uold[-ir];                  // horizontal left
 						result += coeff[-ir * coeff_dimX] * temp_uold[-ir * u_dimY]; //vertical up
 						result += coeff[ir * coeff_dimX] * temp_uold[ir * u_dimY]; // vertical bottom
-#ifdef SQUARE_SETNCIL
+#ifdef SQUARE_STENCIL
 						result += coeff[-ir*coeff_dimX-ir] * temp_uold[-ir * u_dimY-ir] // left upper corner
 						result += coeff[-ir*coeff_dimX+ir] * temp_uold[-ir * u_dimY+ir] // right upper corner
 						result += coeff[ir*coeff_dimX-ir] * temp_uold[ir * u_dimY]-ir] // left bottom corner
