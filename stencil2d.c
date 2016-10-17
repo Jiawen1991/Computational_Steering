@@ -79,7 +79,7 @@ int main(int argc, char * argv[]) {
 	int radius = 3;
 	int num_its = 1000;
 	int num_threads = 1;
-    fprintf(stderr,"Usage: jacobi [<n> <m> <radius> <num_its>]\n");
+    fprintf(stderr,"Usage: stencil2d [<n> <m> <radius> <num_its>]\n");
     fprintf(stderr, "\tn - grid dimension in x direction, default: %d\n", n);
     fprintf(stderr, "\tm - grid dimension in y direction, default: n if provided or %d\n", m);
     fprintf(stderr, "\tradius - Filter radius, default: %d\n", radius);
@@ -92,9 +92,15 @@ int main(int argc, char * argv[]) {
 		printf("%d\n",num_threads);
 	
 	}
-    else if (argc == 3) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); }
-    else if (argc == 4) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); sscanf(argv[3], "%d", &radius); }
-    else if (argc == 5) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); sscanf(argv[3], "%d", &radius); sscanf(argv[4], "%d", &num_its); }
+    else if (argc == 3) //{ sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); }
+	{
+		num_threads = atoi(argv[1]);
+                omp_set_num_threads(num_threads);
+                printf("%d\n",num_threads);
+		radius = atoi(argv[2]);
+	}
+    //else if (argc == 4) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); sscanf(argv[3], "%d", &radius); }
+    //else if (argc == 5) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); sscanf(argv[3], "%d", &radius); sscanf(argv[4], "%d", &num_its); }
     else {
     	/* the rest of arg ignored */
     }
