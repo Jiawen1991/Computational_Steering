@@ -117,13 +117,13 @@ int main(int argc, char * argv[]) {
         int i;
         int num_runs = 1;
 	for (i=0;i<num_runs;i++) stencil2d_seq(n, m, u, radius, coeff, num_its);
-	base_elapsed = omp_get_wtime() - base_elapsed;
+	base_elapsed = ((omp_get_wtime() - base_elapsed))/num_runs*1000;
 
 	printf("OMP execution\n");
 	REAL omp_elapsed = omp_get_wtime();
 	num_runs = 1;
 	for (i=0;i<num_runs;i++) stencil2d_omp(n, m, u_omp, radius, coeff, num_its);
-	omp_elapsed = (omp_get_wtime() - omp_elapsed)/num_runs;
+	omp_elapsed = (omp_get_wtime() - omp_elapsed)/num_runs*1000;
 
 	long flops = n*m*radius;
 #ifdef SQUARE_SETNCIL
@@ -135,7 +135,7 @@ int main(int argc, char * argv[]) {
 	printf("======================================================================================================\n");
 	printf("\tStencil 2D: %dx%d, stencil radius: %d, #iteratins: %d\n", n, m, radius, num_its);
 	printf("------------------------------------------------------------------------------------------------------\n");
-	printf("Performance:\t\tRuntime (s)\t MFLOPS \t\tError (compared to base)\n");
+	printf("Performance:\t\tRuntime (ms)\t MFLOPS \t\tError (compared to base)\n");
 	printf("------------------------------------------------------------------------------------------------------\n");
 	printf("base:\t\t%4f\t%4f \t\t%g\n", base_elapsed, flops / (1.0e-3 * base_elapsed), 0.0); //check_accdiff(u, u, u_dimX, u_dimY, radius, 1.0e-7));
 	printf("omp: \t\t%4f\t%4f \t\t%g\n", omp_elapsed, flops / (1.0e-3 * omp_elapsed), check_accdiff(u, u_omp, n, m, radius, 0.00001f));
