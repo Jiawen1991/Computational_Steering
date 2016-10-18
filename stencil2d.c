@@ -79,12 +79,13 @@ int main(int argc, char * argv[]) {
 	int radius = 3;
 	int num_its = 1000;
 	int num_threads = 1;
+#if 0
     fprintf(stderr,"Usage: stencil2d [<n> <m> <radius> <num_its>]\n");
     fprintf(stderr, "\tn - grid dimension in x direction, default: %d\n", n);
     fprintf(stderr, "\tm - grid dimension in y direction, default: n if provided or %d\n", m);
     fprintf(stderr, "\tradius - Filter radius, default: %d\n", radius);
     fprintf(stderr, "\tnum_its  - # iterations for iterative solver, default: %d\n", num_its);
-
+#endif
     if (argc == 2)      //{ sscanf(argv[1], "%d", &n); m = n; }
 	{
 		num_threads = atoi(argv[1]);
@@ -96,7 +97,7 @@ int main(int argc, char * argv[]) {
 	{
 		num_threads = atoi(argv[1]);
                 omp_set_num_threads(num_threads);
-                printf("%d\n",num_threads);
+                printf("%d\t",num_threads);
 		radius = atoi(argv[2]);
 	}
     //else if (argc == 4) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); sscanf(argv[3], "%d", &radius); }
@@ -129,20 +130,20 @@ int main(int argc, char * argv[]) {
 	for (i=0;i<num_runs;i++) stencil2d_seq(n, m, u, radius, coeff, num_its);
 	base_elapsed = ((omp_get_wtime() - base_elapsed))/num_runs*1000;
 #endif
-	printf("OMP execution\n");
+//	printf("OMP execution\n");
 	REAL omp_elapsed = omp_get_wtime();
 	int i;
 	int num_runs = 1;
 	for (i=0;i<num_runs;i++) stencil2d_omp(n, m, u_omp, radius, coeff, num_its);
 	omp_elapsed = (omp_get_wtime() - omp_elapsed)/num_runs*1000;
-
+	printf("%f\n",omp_elapsed);
 	long flops = n*m*radius;
 #ifdef SQUARE_STENCIL
 	flops *= 8;
 #else
 	flops *= 16;
 #endif
-
+#if 0
 	printf("======================================================================================================\n");
 	printf("\tStencil 2D: %dx%d, stencil radius: %d, #iteratins: %d\n", n, m, radius, num_its);
 	printf("------------------------------------------------------------------------------------------------------\n");
@@ -150,7 +151,7 @@ int main(int argc, char * argv[]) {
 	printf("------------------------------------------------------------------------------------------------------\n");
 	//printf("base:\t\t%4f\t%4f \t\t%g\n", base_elapsed, flops / (1.0e-3 * base_elapsed), 0.0); //check_accdiff(u, u, u_dimX, u_dimY, radius, 1.0e-7));
 	printf("omp: \t\t%4f\t%4f \t\t%g\n", omp_elapsed, flops / (1.0e-3 * omp_elapsed), check_accdiff(u, u_omp, n, m, radius, 0.00001f));
-
+#endif
 	free(u);
 	free(u_omp);
 	free(coeff);
