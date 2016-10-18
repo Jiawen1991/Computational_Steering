@@ -1,4 +1,8 @@
-for i in {1..48}
+for j in {3..4}
 do
-  ./stencil2d $i 3 
+for i in {1..2}
+do
+  ./stencil2d $i $j 
+done
+echo -e "\n"
 done

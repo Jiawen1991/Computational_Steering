@@ -90,14 +90,14 @@ int main(int argc, char * argv[]) {
 	{
 		num_threads = atoi(argv[1]);
 		omp_set_num_threads(num_threads);
-		printf("%d\n",num_threads);
+		printf("%d\t",num_threads);
 	
 	}
     else if (argc == 3) //{ sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); }
 	{
 		num_threads = atoi(argv[1]);
                 omp_set_num_threads(num_threads);
-                printf("%d\t",num_threads);
+        //        printf("%d\t",num_threads);
 		radius = atoi(argv[2]);
 	}
     //else if (argc == 4) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); sscanf(argv[3], "%d", &radius); }
@@ -136,7 +136,7 @@ int main(int argc, char * argv[]) {
 	int num_runs = 1;
 	for (i=0;i<num_runs;i++) stencil2d_omp(n, m, u_omp, radius, coeff, num_its);
 	omp_elapsed = (omp_get_wtime() - omp_elapsed)/num_runs*1000;
-	printf("%f\n",omp_elapsed);
+	printf("%.0f\t",omp_elapsed);
 	long flops = n*m*radius;
 #ifdef SQUARE_STENCIL
 	flops *= 8;
