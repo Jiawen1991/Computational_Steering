@@ -79,13 +79,6 @@ int main(int argc, char * argv[]) {
 	int radius = 3;
 	int num_its = 1000;
 	int num_threads = 1;
-#if 0
-    fprintf(stderr,"Usage: stencil2d [<n> <m> <radius> <num_its>]\n");
-    fprintf(stderr, "\tn - grid dimension in x direction, default: %d\n", n);
-    fprintf(stderr, "\tm - grid dimension in y direction, default: n if provided or %d\n", m);
-    fprintf(stderr, "\tradius - Filter radius, default: %d\n", radius);
-    fprintf(stderr, "\tnum_its  - # iterations for iterative solver, default: %d\n", num_its);
-#endif
     if (argc == 2)      //{ sscanf(argv[1], "%d", &n); m = n; }
 	{
 		num_threads = atoi(argv[1]);
@@ -100,8 +93,6 @@ int main(int argc, char * argv[]) {
         //        printf("%d\t",num_threads);
 		radius = atoi(argv[2]);
 	}
-    //else if (argc == 4) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); sscanf(argv[3], "%d", &radius); }
-    //else if (argc == 5) { sscanf(argv[1], "%d", &n); sscanf(argv[2], "%d", &m); sscanf(argv[3], "%d", &radius); sscanf(argv[4], "%d", &num_its); }
     else {
     	/* the rest of arg ignored */
     }
