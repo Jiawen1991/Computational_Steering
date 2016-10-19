@@ -5,6 +5,7 @@
 #include <sys/time.h>
 #include <sys/timeb.h>
 #include <string.h>
+#include<stdbool.h>
 
 /* 2D/3D stencil computation, take a radius sized coefficient matrix, and apply stencil computation to a matrix
  * The stencil could be cross-based, which only uses neighbors from one dimension stride (A[i-1][j][k], or square-based
@@ -17,6 +18,9 @@
  * 1. CROSS-based stencil, default, coefficient is an array of 4*radius+1, [0] is the center value, and then row and column values
  * 2. SQUARE-based stencil, coefficient is a square matrix with one dimension of (2*radius+1)
  */
+
+#define MAX_THREADS 20
+#define MAX_RADIUS 15
 
 void print_array(char * title, char * name, REAL * A, long n, long m) {
 	printf("%s:\n", title);
@@ -74,9 +78,14 @@ void stencil2d_seq(long n, long m, REAL *u, int radius, REAL *filter, int num_it
 void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its);
 
 int main(int argc, char * argv[]) {
+
+//#if 0
+	
+//#endif
+
 	long n = DEFAULT_DIMSIZE;
 	long m = DEFAULT_DIMSIZE;
-	int radius = 3;
+	int radius = 4;
 	int num_its = 1000;
 	int num_threads = 1;
     if (argc == 2)      //{ sscanf(argv[1], "%d", &n); m = n; }
@@ -101,9 +110,12 @@ int main(int argc, char * argv[]) {
 
 	long u_dimX = n+radius+radius;
 	long u_dimY = m+radius+radius;
+	//long u_dimX = n+MAX_RADIUS+MAX_RADIUS;
+	//long u_dimY = m+MAX_RADIUS+MAX_RADIUS;
 	long u_volumn = u_dimX*u_dimY;
 	int coeff_volumn;
 	coeff_volumn = (2*radius+1)*(2*radius+1); /* this is for square. Even the cross stencil that use only 4*radius +1, we will use the same square coeff simply */
+	//coeff_volumn = (2*MAX_RADIUS+1)*(2*MAX_RADIUS+1); /* this is for square. Even the cross stencil that use only 4*radius +1, we will use the same square coeff simply */
 //	coeff_volumn = 4*radius+1;
     REAL * u = (REAL *)malloc(sizeof(REAL)* u_volumn);
 	REAL * u_omp = (REAL *)malloc(sizeof(REAL)* u_volumn);
@@ -200,14 +212,31 @@ void stencil2d_seq(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 }
 
 void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its) {
+
+//#if 0
+	REAL onethread_time, multiplethread_time, before_time, current_time;
+	REAL speedup[MAX_THREADS];
+	int threads_count = 1;
+	REAL current_speedup;
+	bool changing_radius, calculating_onethread;
+	changing_radius = false;
+	calculating_onethread = false;
+	//omp_set_num_threads(1);
+//#endif
+
 	long it; /* iteration */
 	long u_dimX = n + 2 * radius;
 	long u_dimY = m + 2 * radius;
 	int coeff_dimX = 2 * radius + 1;
+	//long u_dimX = n + 2 * MAX_RADIUS;
+	//long u_dimY = m + 2 * MAX_RADIUS;
+	//int coeff_dimX = 2 * MAX_RADIUS + 1;
 	REAL *uold = (REAL *) malloc(sizeof(REAL) * u_dimX * u_dimY);
 	memcpy(uold, u, sizeof(REAL)*u_dimX*u_dimY);
 	coeff = coeff + (2 * radius + 1) * radius + radius; /* let coeff point to the center element */
+	//coeff = coeff + (2 * MAX_RADIUS + 1) * MAX_RADIUS + MAX_RADIUS; /* let coeff point to the center element */
 	int count = 4*radius+1;
+	//int count = 4*MAX_RADIUS+1;
 #ifdef SQUARE_STENCIL
 	count = coeff_dimX * coeff_dimX;
 #endif
@@ -218,6 +247,62 @@ void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 	{
 		int ix, iy, ir;
 		for (it = 0; it < num_its; it++) {
+
+#if 0
+	if(it % 10 == 0 && radius<=MAX_RADIUS && threads_count<=MAX_THREADS) 
+	{
+			current_time = omp_get_wtime();	
+		if(it == 0)	omp_set_num_threads(threads_count);
+		else if(it == 10){
+			onethread_time = current_time - before_time;
+			speedup[threads_count] = 1;
+			threads_count++;
+			omp_set_num_threads(threads_count);
+		}
+		else{
+			if(!changing_radius) //It's the normal situation when speedup keeps increaing. 
+			{
+				multiplethread_time = current_time-before_time;
+				current_speedup = onethread_time/multiplethread_time; //The speedup of (one thread / current # of threads)
+				if(current_speedup-speedup[threads_count-1]>=0.2){ //It's the normal situation when speedup keeps increaing. 
+					speedup[threads_count] = current_speedup;
+					threads_count++;
+					printf("# of threads:%d\n",threads_count);
+					omp_set_num_threads(threads_count);
+				}
+				else{ // When the difference between current and previous speedup less than 0.2 
+					radius++;
+					printf("# of radius:%d\n",radius);
+					changing_radius = true;
+				}
+			}
+			else{ // After change the radius
+				if(!calculating_onethread){ //Calculate the execution time for current/multiple threads numbers
+					multiplethread_time = current_time - before_time;
+					calculating_onethread = true;
+					omp_set_num_threads(1);
+				}
+				else{ // Calculate the execution time of 1 thread of the current radius value	
+					onethread_time = current_time - before_time;
+					current_speedup=onethread_time/multiplethread_time;
+					if(current_speedup-speedup[threads_count-1]>=0.2){ //When the speedup keeps increasing
+                                        	speedup[threads_count] = current_speedup;
+                                        	threads_count++;
+                                        	omp_set_num_threads(threads_count);
+						changing_radius=calculating_onethread=false;
+                                	}
+					else{ //When speedup still keeps decreasing
+					radius++;
+                                        changing_radius = true;
+					calculating_onethread = false;
+					}
+				}
+			}
+		}//End of it > 10
+		before_time = current_time;
+	}//End of it % 10 == 0
+#endif
+
 #pragma omp for
 			for (ix = 0; ix < n; ix++) {
 				REAL *temp_u = &u[(ix + radius) * u_dimY+radius];
