@@ -1,4 +1,4 @@
-for j in {20..21}
+for j in {3..4}
 do
 for i in {1..20}
 do
