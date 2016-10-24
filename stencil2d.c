@@ -307,8 +307,10 @@ void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 	{
 #pragma omp for
 			for (ix = 0; ix < n; ix++) {
-				REAL *temp_u = &u[(ix + MAX_RADIUS) * u_dimY+MAX_RADIUS];
-				REAL *temp_uold = &uold[(ix + MAX_RADIUS) * u_dimY+MAX_RADIUS];
+				REAL *temp_u = &u[(ix + radius) * u_dimY+radius];
+                                REAL *temp_uold = &uold[(ix + radius) * u_dimY+radius];
+				//REAL *temp_u = &u[(ix + MAX_RADIUS) * u_dimY+MAX_RADIUS];
+				//REAL *temp_uold = &uold[(ix + MAX_RADIUS) * u_dimY+MAX_RADIUS];
 				for (iy = 0; iy < m; iy++) {
 					REAL result = temp_uold[0] * coeff[0];
 					/* 2/4 way loop unrolling */
