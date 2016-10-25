@@ -19,8 +19,8 @@
  * 2. SQUARE-based stencil, coefficient is a square matrix with one dimension of (2*radius+1)
  */
 
-#define MAX_THREADS 20
-#define MAX_RADIUS 20 
+#define MAX_THREADS 35
+#define MAX_RADIUS 50 
 
 void print_array(char * title, char * name, REAL * A, long n, long m) {
 	printf("%s:\n", title);
@@ -86,7 +86,7 @@ int main(int argc, char * argv[]) {
 	long n = DEFAULT_DIMSIZE;
 	long m = DEFAULT_DIMSIZE;
 	int radius = 4;
-	int num_its = 1000;
+	int num_its = 10000;
 	int num_threads = 1;
     if (argc == 2)      //{ sscanf(argv[1], "%d", &n); m = n; }
 	{
@@ -116,7 +116,7 @@ int main(int argc, char * argv[]) {
 	int coeff_volumn;
 	//coeff_volumn = (2*radius+1)*(2*radius+1); /* this is for square. Even the cross stencil that use only 4*radius +1, we will use the same square coeff simply */
 	coeff_volumn = (2*MAX_RADIUS+1)*(2*MAX_RADIUS+1); /* this is for square. Even the cross stencil that use only 4*radius +1, we will use the same square coeff simply */
-//	coeff_volumn = 4*radius+1;
+	//coeff_volumn = 4*radius+1;
     REAL * u = (REAL *)malloc(sizeof(REAL)* u_volumn);
 	REAL * u_omp = (REAL *)malloc(sizeof(REAL)* u_volumn);
 	REAL *coeff = (REAL *) malloc(sizeof(REAL)*coeff_volumn);
@@ -214,9 +214,9 @@ void stencil2d_seq(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its) {
 
 //#if 0
-	REAL onethread_time, multiplethread_time, before_time, current_time;
+	REAL onethread_time, multiplethread_time, before_time, current_time, exe_time;
 	REAL speedup[MAX_THREADS];
-	int threads_count = 2;
+	int threads_count = 1;
 	REAL current_speedup;
 	bool changing_radius, calculating_onethread;
 	changing_radius = false;
@@ -241,76 +241,82 @@ void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 
 	REAL * uold_save = uold;
 	REAL * u_save = u;
-	int ix, iy, ir;
+
+	current_time = omp_get_wtime();
+	omp_set_num_threads(1);
+	changing_radius = calculating_onethread = false;	
+
 	for (it = 0; it < num_its; it++) {
-#if 0
-	if(it % 10 == 0 && radius<=MAX_RADIUS && threads_count<=MAX_THREADS) 
+
+	if(it%50 == 0 && it != 0 && radius<=MAX_RADIUS && threads_count<=MAX_THREADS)
 	{
-			current_time = omp_get_wtime();	
-		if(it == 0)	omp_set_num_threads(threads_count);
-		else if(it == 10){
-			onethread_time = current_time - before_time;
-			current_speedup = speedup[threads_count] = 0;
+		before_time = current_time;
+		current_time = omp_get_wtime();
+		exe_time = current_time - before_time;
+		if(it == 50) //the first 10 iterations
+		{
+			onethread_time = exe_time;
+			speedup[threads_count] = 1;
 			threads_count++;
 			omp_set_num_threads(threads_count);
 		}
 		else{
-			if(!changing_radius) //It's the normal situation when speedup keeps increaing. 
+			if(!changing_radius && !calculating_onethread) //normal situation
 			{
-				multiplethread_time = current_time-before_time;
-				current_speedup = onethread_time/multiplethread_time; //The speedup of (one thread / current # of threads)
-				printf("onethread_time:%.9f, multiplethread_time:%.9f\n",onethread_time,multiplethread_time);
-				if(current_speedup-speedup[threads_count-1]>0){ //It's the normal situation when speedup keeps increaing. 
-					speedup[threads_count] = current_speedup;
+				multiplethread_time = exe_time;
+				speedup[threads_count] = onethread_time/multiplethread_time;
+				if(speedup[threads_count]>speedup[threads_count-1] && speedup[threads_count]<=threads_count) //nomal situation, use "speedup[threads_count]<=threads_count" to prevent the case that the # of threads would stop increasing because of the high value of speedup(suddent speedup) no matter how much radius we increase.
+				{
 					threads_count++;
-					//printf("# of threads:%d\n",threads_count);
 					omp_set_num_threads(threads_count);
 				}
-				else{ // When the difference between current and previous speedup less than 0.2 
-					radius++ ;
-					//printf("# of radius:%d\n",radius);
-					changing_radius = true;
+				else //when speedup starts to decrease
+				{
+				radius = radius + 1;
+                                changing_radius = true;
 				}
 			}
-			else{ // After change the radius
-				if(!calculating_onethread){ //Calculate the execution time for current/multiple threads numbers
-					multiplethread_time = current_time - before_time;
-					calculating_onethread = true;
-					omp_set_num_threads(1);
-				}
-				else{ // Calculate the execution time of 1 thread of the current radius value	
-					onethread_time = current_time - before_time;
-					current_speedup=onethread_time/multiplethread_time;
-					if(current_speedup-speedup[threads_count-1]>0){ //When the speedup keeps increasing
-                                        	speedup[threads_count] = current_speedup;
-                                        	threads_count++;
-                                        	omp_set_num_threads(threads_count);
-						changing_radius=calculating_onethread=false;
-                                	}
-					else{ //When speedup still keeps decreasing
-					radius++;
-					omp_set_num_threads(threads_count);
-                                        changing_radius = true;
-					calculating_onethread = false;
-					}
-				}
+			else if(changing_radius && !calculating_onethread) //calculate multiple threads exe_time
+			{
+				multiplethread_time = exe_time;
+				omp_set_num_threads(1);
+				calculating_onethread = true;
 			}
-		}//End of it > 10
-		before_time = current_time;
-		printf("speedup: %f, threads: %d, radius: %d\n", current_speedup, threads_count, radius);
-	}//End of it % 10 == 0
-#endif
-	int count = 4*radius+1;
+			else if(changing_radius && calculating_onethread) //calculate one thread exe_time
+			{
+				onethread_time = exe_time;	
+				speedup[threads_count] = onethread_time/multiplethread_time;
+				if(speedup[threads_count]>speedup[threads_count-1] && speedup[threads_count]<=threads_count) //nomal situation
+                                {
+                                        threads_count++;
+                                        omp_set_num_threads(threads_count);
+					changing_radius=calculating_onethread=false;
+                                }
+                                else //when speedup less than the previous speedup 
+                                {
+                                radius = radius + 1;
+                                omp_set_num_threads(threads_count);
+                                changing_radius = true;
+				calculating_onethread = false;
+                                }	
+			}
+			else{}
+			printf("speedup:%f\t threads:%d\t radius:%d\t onethread_time:%f\t multiplethread_time:%f\n",speedup[threads_count-1],threads_count-1,radius,onethread_time,multiplethread_time);
+		}
+		
+	}
 
+	int count = 4*radius+1;
 	//printf("iteration: %d, %d threads, radius: %d\n", it, threads_count, radius);
 #pragma omp parallel shared(n, m, radius, coeff, num_its, u_dimX, u_dimY, coeff_dimX, count) firstprivate(u, uold) private(it)
 	{
+	int ix, iy, ir;
 #pragma omp for
 			for (ix = 0; ix < n; ix++) {
-				REAL *temp_u = &u[(ix + radius) * u_dimY+radius];
-                                REAL *temp_uold = &uold[(ix + radius) * u_dimY+radius];
-				//REAL *temp_u = &u[(ix + MAX_RADIUS) * u_dimY+MAX_RADIUS];
-				//REAL *temp_uold = &uold[(ix + MAX_RADIUS) * u_dimY+MAX_RADIUS];
+				//REAL *temp_u = &u[(ix + radius) * u_dimY+radius];
+                                //REAL *temp_uold = &uold[(ix + radius) * u_dimY+radius];
+				REAL *temp_u = &u[(ix + MAX_RADIUS) * u_dimY+MAX_RADIUS];
+				REAL *temp_uold = &uold[(ix + MAX_RADIUS) * u_dimY+MAX_RADIUS];
 				for (iy = 0; iy < m; iy++) {
 					REAL result = temp_uold[0] * coeff[0];
 					/* 2/4 way loop unrolling */
