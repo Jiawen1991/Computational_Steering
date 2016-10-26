@@ -248,12 +248,12 @@ void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 
 	for (it = 0; it < num_its; it++) {
 
-	if(it%50 == 0 && it != 0 && radius<=MAX_RADIUS && threads_count<=MAX_THREADS)
+	if(it%100 == 0 && it != 0 && radius<=MAX_RADIUS && threads_count<=MAX_THREADS)
 	{
 		before_time = current_time;
 		current_time = omp_get_wtime();
 		exe_time = current_time - before_time;
-		if(it == 50) //the first 10 iterations
+		if(it == 100) //the first 10 iterations
 		{
 			onethread_time = exe_time;
 			speedup[threads_count] = 1;
@@ -265,14 +265,14 @@ void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 			{
 				multiplethread_time = exe_time;
 				speedup[threads_count] = onethread_time/multiplethread_time;
-				if(speedup[threads_count]>speedup[threads_count-1] && speedup[threads_count]<=threads_count) //nomal situation, use "speedup[threads_count]<=threads_count" to prevent the case that the # of threads would stop increasing because of the high value of speedup(suddent speedup) no matter how much radius we increase.
+				if(speedup[threads_count]>speedup[threads_count-1] && speedup[threads_count]<=threads_count) //nomal situation, use "speedup[threads_count]<=threads_count" to prevent the case that the # of threads would stop increasing because of the high value of speedup(sudden speedup) when we increase the # of radius.
 				{
 					threads_count++;
 					omp_set_num_threads(threads_count);
 				}
 				else //when speedup starts to decrease
 				{
-				radius = radius + 1;
+				radius++;
                                 changing_radius = true;
 				}
 			}
@@ -290,13 +290,14 @@ void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
                                 {
                                         threads_count++;
                                         omp_set_num_threads(threads_count);
-					changing_radius=calculating_onethread=false;
+					changing_radius = false;
+					calculating_onethread = false;
                                 }
                                 else //when speedup less than the previous speedup 
                                 {
-                                radius = radius + 1;
-                                omp_set_num_threads(threads_count);
+                                radius++;
                                 changing_radius = true;
+                                omp_set_num_threads(threads_count);
 				calculating_onethread = false;
                                 }	
 			}
