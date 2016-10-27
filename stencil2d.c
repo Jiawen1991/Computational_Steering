@@ -86,7 +86,7 @@ int main(int argc, char * argv[]) {
 	long n = DEFAULT_DIMSIZE;
 	long m = DEFAULT_DIMSIZE;
 	int radius = 4;
-	int num_its = 10000;
+	int num_its = 50000;
 	int num_threads = 1;
     if (argc == 2)      //{ sscanf(argv[1], "%d", &n); m = n; }
 	{
@@ -248,12 +248,12 @@ void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 
 	for (it = 0; it < num_its; it++) {
 
-	if(it%100 == 0 && it != 0 && radius<=MAX_RADIUS && threads_count<=MAX_THREADS)
+	if(it%1000 == 0 && it != 0 && radius<=MAX_RADIUS && threads_count<=MAX_THREADS)
 	{
 		before_time = current_time;
 		current_time = omp_get_wtime();
 		exe_time = current_time - before_time;
-		if(it == 100) //the first 10 iterations
+		if(it == 1000) //the first 1000 iterations
 		{
 			onethread_time = exe_time;
 			speedup[threads_count] = 1;
