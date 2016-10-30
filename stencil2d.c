@@ -6,6 +6,7 @@
 #include <sys/timeb.h>
 #include <string.h>
 #include<stdbool.h>
+#include<papi.h>
 
 /* 2D/3D stencil computation, take a radius sized coefficient matrix, and apply stencil computation to a matrix
  * The stencil could be cross-based, which only uses neighbors from one dimension stride (A[i-1][j][k], or square-based
@@ -21,6 +22,10 @@
 
 #define MAX_THREADS 35
 #define MAX_RADIUS 50 
+int rapl_EventSet = PAPI_NULL;
+long long rapl_EventValues[2];
+int rapl_EventCode;
+
 
 void print_array(char * title, char * name, REAL * A, long n, long m) {
 	printf("%s:\n", title);
@@ -86,7 +91,7 @@ int main(int argc, char * argv[]) {
 	long n = DEFAULT_DIMSIZE;
 	long m = DEFAULT_DIMSIZE;
 	int radius = 4;
-	int num_its = 50000;
+	int num_its = 1000;
 	int num_threads = 1;
     if (argc == 2)      //{ sscanf(argv[1], "%d", &n); m = n; }
 	{
@@ -133,27 +138,29 @@ int main(int argc, char * argv[]) {
 	for (i=0;i<num_runs;i++) stencil2d_seq(n, m, u, radius, coeff, num_its);
 	base_elapsed = ((omp_get_wtime() - base_elapsed))/num_runs*1000;
 #endif
-//	printf("OMP execution\n");
 	REAL omp_elapsed = omp_get_wtime();
 	int i;
 	int num_runs = 1;
-	for (i=0;i<num_runs;i++) stencil2d_omp(n, m, u_omp, radius, coeff, num_its);
-	omp_elapsed = (omp_get_wtime() - omp_elapsed)/num_runs*1000;
-	printf("%.0f\t",omp_elapsed);
+
+//#if 0
+	PAPI_library_init(PAPI_VER_CURRENT);
+        PAPI_create_eventset( &rapl_EventSet );
+        PAPI_event_name_to_code("rapl:::PACKAGE_ENERGY:PACKAGE0",&rapl_EventCode);
+        PAPI_add_event( rapl_EventSet,rapl_EventCode);
+        PAPI_start(rapl_EventSet);
+//#endif
+        for (i=0;i<num_runs;i++) stencil2d_omp(n, m, u_omp, radius, coeff, num_its);
+        PAPI_read( rapl_EventSet, rapl_EventValues);
+        PAPI_stop( rapl_EventSet, rapl_EventValues);
+        omp_elapsed = (omp_get_wtime() - omp_elapsed)/num_runs;
+        //printf("%.0f\t",omp_elapsed);
+        printf("Evengy:%.1fJ\t Average Power %.1fW\t Elapsed time:%.0fms\n",(double)rapl_EventValues[0]/1.0e9,(double)rapl_EventValues[0]/1.0e9/omp_elapsed,omp_elapsed*1000);
+
 	long flops = n*m*radius;
 #ifdef SQUARE_STENCIL
 	flops *= 8;
 #else
 	flops *= 16;
-#endif
-#if 0
-	printf("======================================================================================================\n");
-	printf("\tStencil 2D: %dx%d, stencil radius: %d, #iteratins: %d\n", n, m, radius, num_its);
-	printf("------------------------------------------------------------------------------------------------------\n");
-	printf("Performance:\t\tRuntime (ms)\t MFLOPS \t\tError (compared to base)\n");
-	printf("------------------------------------------------------------------------------------------------------\n");
-	//printf("base:\t\t%4f\t%4f \t\t%g\n", base_elapsed, flops / (1.0e-3 * base_elapsed), 0.0); //check_accdiff(u, u, u_dimX, u_dimY, radius, 1.0e-7));
-	printf("omp: \t\t%4f\t%4f \t\t%g\n", omp_elapsed, flops / (1.0e-3 * omp_elapsed), check_accdiff(u, u_omp, n, m, radius, 0.00001f));
 #endif
 	free(u);
 	free(u_omp);
