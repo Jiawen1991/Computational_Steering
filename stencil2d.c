@@ -221,7 +221,6 @@ void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 	bool changing_radius, calculating_onethread;
 	changing_radius = false;
 	calculating_onethread = false;
-//	omp_set_num_threads(2);
 //#endif
 
 	long it; /* iteration */
@@ -247,7 +246,7 @@ void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 	changing_radius = calculating_onethread = false;	
 
 	for (it = 0; it < num_its; it++) {
-
+#if 0
 	if(it%1000 == 0 && it != 0 && radius<=MAX_RADIUS && threads_count<=MAX_THREADS)
 	{
 		before_time = current_time;
@@ -306,7 +305,7 @@ void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 		}
 		
 	}
-
+#endif
 	int count = 4*radius+1;
 	//printf("iteration: %d, %d threads, radius: %d\n", it, threads_count, radius);
 #pragma omp parallel shared(n, m, radius, coeff, num_its, u_dimX, u_dimY, coeff_dimX, count) firstprivate(u, uold) private(it)
