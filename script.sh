@@ -1,6 +1,6 @@
-for j in {5..5}
+for j in {4..10}
 do
-for i in {1..14}
+for i in {1..4}
 do
   ./stencil2d $i $j 
 done

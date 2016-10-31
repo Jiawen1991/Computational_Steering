@@ -249,7 +249,6 @@ void stencil2d_omp(long n, long m, REAL *u, int radius, REAL *coeff, int num_its
 	REAL * u_save = u;
 
 	current_time = omp_get_wtime();
-	omp_set_num_threads(1);
 	changing_radius = calculating_onethread = false;	
 
 	for (it = 0; it < num_its; it++) {
